@@ -1,14 +1,21 @@
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use cargo_manifest::{Manifest, MaybeInherited};
 use std::str::FromStr;
 use toml::Value;
 
-pub(crate) async fn manifest(body: String) -> impl IntoResponse {
+pub(crate) async fn manifest(headers: HeaderMap, body: String) -> impl IntoResponse {
     tracing::info!("Manifest raw input: {:#?}", body);
-    let parsed_body = match Manifest::from_str(&body) {
-        Ok(m) => m,
-        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid manifest").into_response()
+    let parsed_body = match extract_cargo_toml(&body, headers.get("Content-Type").unwrap().to_str().unwrap()) {
+        Ok(manifest) => manifest,
+        Err(CargoTomlExtractError::UnsupportedMimeType) => {
+            tracing::info!("Invalid manifest: unsupported media type");
+            return StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response();
+        }
+        Err(_) => {
+            tracing::info!("Invalid manifest: unknown error occurred");
+            return (StatusCode::BAD_REQUEST, "Invalid manifest").into_response();
+        }
     };
     tracing::info!("Parsed manifest: {:#?}", parsed_body);
     let package = match parsed_body.package {
@@ -67,4 +74,23 @@ pub(crate) async fn manifest(body: String) -> impl IntoResponse {
         return StatusCode::NO_CONTENT.into_response();
     }
     (StatusCode::OK, result.join("\n")).into_response()
+}
+#[derive(Debug, Clone)]
+enum CargoTomlExtractError {
+    InvalidManifest,
+    UnsupportedMimeType,
+}
+// This could be refactored to be a custom extractor perhaps
+fn extract_cargo_toml(body: &str, mime_type: &str) -> Result<Manifest, CargoTomlExtractError> {
+    let value = match mime_type {
+        "application/yaml" => serde_yaml::from_str::<Value>(body).map_err(|_| CargoTomlExtractError::InvalidManifest)?,
+        "application/json" => serde_json::from_str::<Value>(body).map_err(|_| CargoTomlExtractError::InvalidManifest)?,
+        "application/toml" => toml::from_str::<Value>(body).map_err(|_| CargoTomlExtractError::InvalidManifest)?,
+        _ => Err(CargoTomlExtractError::UnsupportedMimeType)?
+    };
+    let toml_string = toml::ser::to_string_pretty(&value).unwrap();
+    match Manifest::from_str(&toml_string) {
+        Ok(m) => Ok(m),
+        Err(_) => Err(CargoTomlExtractError::InvalidManifest)
+    }
 }

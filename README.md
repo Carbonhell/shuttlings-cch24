@@ -91,6 +91,12 @@ see [the docs](https://docs.rs/axum/latest/axum/response/index.html#returning-di
 some
 boilerplate, which I dislike, but I understand why it may be required.
 
+### Serde YAML
+
+The most popular library for YAML parsing appears to
+be [deprecated](https://github.com/dtolnay/serde-yaml/releases/tag/0.9.34). The reasonable alternative seems to
+be [this](https://github.com/sebastienrousseau/serde_yml), but it doesn't look as popular.
+
 ### Resources
 
 - https://www.shuttle.dev/blog/2024/01/09/getting-started-tracing-rust
