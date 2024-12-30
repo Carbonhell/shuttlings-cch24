@@ -6,6 +6,9 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+const LITER_TO_GALLON: f32 = 0.264172;
+const LITRE_TO_UK_PINT: f32 = 1.7597539864;
+
 // https://stackoverflow.com/questions/69834142/how-to-only-allow-one-field-or-the-other-with-serde
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
@@ -15,6 +18,12 @@ enum UnitConversion {
     },
     Gallons {
         gallons: f32,
+    },
+    Litres {
+        litres: f32,
+    },
+    Pints {
+        pints: f32,
     },
 }
 
@@ -30,8 +39,10 @@ pub(crate) async fn milk(State(state): State<Arc<AppState>>, header_map: HeaderM
                 }
             };
             match unit_conversion_request {
-                UnitConversion::Liters { liters } => Json(UnitConversion::Gallons { gallons: liters * 0.264172 }).into_response(),
-                UnitConversion::Gallons { gallons } => Json(UnitConversion::Liters { liters: gallons / 0.264172 }).into_response(),
+                UnitConversion::Liters { liters } => Json(UnitConversion::Gallons { gallons: liters * LITER_TO_GALLON }).into_response(),
+                UnitConversion::Gallons { gallons } => Json(UnitConversion::Liters { liters: gallons / LITER_TO_GALLON }).into_response(),
+                UnitConversion::Litres { litres } => { Json(UnitConversion::Pints { pints: litres * LITRE_TO_UK_PINT }).into_response() }
+                UnitConversion::Pints { pints } => { Json(UnitConversion::Litres { litres: pints / LITRE_TO_UK_PINT }).into_response() }
             }
         } else {
             tracing::info!("Handling milk withdraw request");
