@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use cargo_manifest::Manifest;
+use cargo_manifest::{Manifest, MaybeInherited};
 use std::str::FromStr;
 use toml::Value;
 
@@ -18,6 +18,14 @@ pub(crate) async fn manifest(body: String) -> impl IntoResponse {
             return StatusCode::NO_CONTENT.into_response();
         }
     };
+    match package.keywords {
+        Some(MaybeInherited::Local(keywords)) => {
+            if !keywords.iter().any(|el| el == "Christmas 2024") {
+                return (StatusCode::BAD_REQUEST, "Magic keyword not provided").into_response();
+            }
+        }
+        _ => return (StatusCode::BAD_REQUEST, "Magic keyword not provided").into_response()
+    }
 
     let metadata = match package.metadata {
         Some(m) => m,
