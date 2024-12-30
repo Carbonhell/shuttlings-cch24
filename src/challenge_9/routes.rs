@@ -4,7 +4,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 const LITER_TO_GALLON: f32 = 0.264172;
 const LITRE_TO_UK_PINT: f32 = 1.7597539864;
@@ -27,8 +27,9 @@ enum UnitConversion {
     },
 }
 
-pub(crate) async fn milk(State(state): State<Arc<AppState>>, header_map: HeaderMap, body: String) -> impl IntoResponse {
-    if state.rate_limiter.try_acquire(1) {
+pub(crate) async fn milk(State(state): State<Arc<RwLock<AppState>>>, header_map: HeaderMap, body: String) -> impl IntoResponse {
+    let locked_state = state.read().unwrap();
+    if locked_state.rate_limiter.try_acquire(1) {
         if is_content_type_json(&header_map) {
             tracing::info!("Handling unit conversion request with body {:#?}", body);
             let unit_conversion_request = match serde_json::from_str::<UnitConversion>(&body) {
@@ -52,6 +53,12 @@ pub(crate) async fn milk(State(state): State<Arc<AppState>>, header_map: HeaderM
         tracing::info!("Too many requests");
         (StatusCode::TOO_MANY_REQUESTS, "No milk available\n").into_response()
     }
+}
+
+pub(crate) async fn refill(State(state): State<Arc<RwLock<AppState>>>) -> impl IntoResponse {
+    let mut locked_state = state.write().unwrap();
+    locked_state.reset_bucket();
+    StatusCode::OK
 }
 
 fn is_content_type_json(headers: &HeaderMap) -> bool {

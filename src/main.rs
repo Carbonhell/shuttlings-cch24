@@ -1,7 +1,7 @@
 use axum::routing::post;
 use axum::{routing::get, Router};
 use leaky_bucket::RateLimiter;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 #[path = "challenge_-1/mod.rs"]
@@ -12,7 +12,7 @@ mod challenge_9;
 
 use crate::challenge_2::routes::{ipv4_router_decrypt, ipv6_router, ipv6_router_decrypt};
 use crate::challenge_5::routes::manifest;
-use crate::challenge_9::routes::milk;
+use crate::challenge_9::routes::{milk, refill};
 use challenge_2::routes::ipv4_router;
 use challenge_neg1::routes::{hello_world, seek};
 
@@ -20,15 +20,29 @@ struct AppState {
     rate_limiter: RateLimiter,
 }
 
+impl AppState {
+    fn reset_bucket(&mut self) {
+        self.rate_limiter = AppState::default().rate_limiter
+    }
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            rate_limiter: RateLimiter::builder()
+                .max(5)
+                .initial(5)
+                .interval(Duration::from_millis(1000))
+                .build()
+        }
+    }
+}
+
+type SharedState = Arc<RwLock<AppState>>;
+
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-    let shared_state = Arc::new(AppState {
-        rate_limiter: RateLimiter::builder()
-            .max(5)
-            .initial(5)
-            .interval(Duration::from_millis(1000))
-            .build()
-    });
+    let shared_state = SharedState::default();
     let router = Router::new()
         .route("/", get(hello_world))
         .route("/-1/seek", get(seek))
@@ -38,6 +52,7 @@ async fn main() -> shuttle_axum::ShuttleAxum {
         .route("/2/v6/key", get(ipv6_router_decrypt))
         .route("/5/manifest", post(manifest))
         .route("/9/milk", post(milk))
+        .route("/9/refill", post(refill))
         .with_state(shared_state);
 
     Ok(router.into())
