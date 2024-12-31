@@ -4,7 +4,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 const LITER_TO_GALLON: f32 = 0.264172;
 const LITRE_TO_UK_PINT: f32 = 1.7597539864;
@@ -28,7 +29,7 @@ enum UnitConversion {
 }
 
 pub(crate) async fn milk(State(state): State<Arc<RwLock<AppState>>>, header_map: HeaderMap, body: String) -> impl IntoResponse {
-    let locked_state = state.read().unwrap();
+    let locked_state = state.read().await;
     if locked_state.rate_limiter.try_acquire(1) {
         if is_content_type_json(&header_map) {
             tracing::info!("Handling unit conversion request with body {:#?}", body);
@@ -56,7 +57,7 @@ pub(crate) async fn milk(State(state): State<Arc<RwLock<AppState>>>, header_map:
 }
 
 pub(crate) async fn refill(State(state): State<Arc<RwLock<AppState>>>) -> impl IntoResponse {
-    let mut locked_state = state.write().unwrap();
+    let mut locked_state = state.write().await;
     locked_state.reset_bucket();
     StatusCode::OK
 }

@@ -3,17 +3,18 @@ use crate::AppState;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub(crate) async fn board(State(state): State<Arc<RwLock<AppState>>>) -> impl IntoResponse {
-    let locked_state = state.read().unwrap();
+    let locked_state = state.read().await;
     let board = locked_state.board.to_string();
     tracing::info!("Returning board:\n{}", board);
     board
 }
 
 pub(crate) async fn reset_board(State(state): State<Arc<RwLock<AppState>>>) -> impl IntoResponse {
-    let mut locked_state = state.write().unwrap();
+    let mut locked_state = state.write().await;
     locked_state.reset_board();
     let board = locked_state.board.to_string();
     tracing::info!("Returning board:\n{}", board);
@@ -22,7 +23,7 @@ pub(crate) async fn reset_board(State(state): State<Arc<RwLock<AppState>>>) -> i
 
 pub(crate) async fn place(State(state): State<Arc<RwLock<AppState>>>, Path((team, column)): Path<(String, usize)>) -> impl IntoResponse {
     tracing::info!("Placing entry in grid:\n{}\n{}", team, column);
-    let mut locked_state = state.write().unwrap();
+    let mut locked_state = state.write().await;
     let player = match Player::try_from(team.as_str()) {
         Ok(player) => player,
         Err(_) => {
