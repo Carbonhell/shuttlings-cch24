@@ -10,9 +10,11 @@ mod challenge_2;
 mod challenge_5;
 mod challenge_9;
 mod challenge_12;
+mod challenge_16;
 
 use crate::challenge_12::routes::{board, place, reset_board};
 use crate::challenge_12::structs::Grid;
+use crate::challenge_16::routes::{unwrap, wrap};
 use crate::challenge_2::routes::{ipv4_router_decrypt, ipv6_router, ipv6_router_decrypt};
 use crate::challenge_5::routes::manifest;
 use crate::challenge_9::routes::{milk, refill};
@@ -66,6 +68,8 @@ async fn main() -> shuttle_axum::ShuttleAxum {
         .route("/12/board", get(board))
         .route("/12/reset", post(reset_board))
         .route("/12/place/:team/:column", post(place))
+        .route("/16/wrap", post(wrap))
+        .route("/16/unwrap", get(unwrap))
         .with_state(shared_state);
 
     Ok(router.into())
