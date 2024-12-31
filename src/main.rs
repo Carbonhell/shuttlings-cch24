@@ -5,6 +5,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
+use tower_http::services::ServeDir;
 
 #[path = "challenge_-1/mod.rs"]
 mod challenge_neg1;
@@ -14,12 +15,14 @@ mod challenge_9;
 mod challenge_12;
 mod challenge_16;
 mod challenge_19;
+mod challenge_23;
 
 use crate::challenge_12::routes::{board, place, reset_board};
 use crate::challenge_12::structs::Grid;
 use crate::challenge_16::routes::{unwrap, wrap};
 use crate::challenge_19::routes::{add_quote, delete_quote, get_quote, reset_quotes, update_quote};
 use crate::challenge_2::routes::{ipv4_router_decrypt, ipv6_router, ipv6_router_decrypt};
+use crate::challenge_23::routes::{get_ornament, get_present, star};
 use crate::challenge_5::routes::manifest;
 use crate::challenge_9::routes::{milk, refill};
 use challenge_2::routes::ipv4_router;
@@ -71,6 +74,7 @@ async fn main(
 
     let shared_state = SharedState::new(RwLock::new(AppState::new(pool)));
     let router = Router::new()
+
         .route("/", get(hello_world))
         .route("/-1/seek", get(seek))
         .route("/2/dest", get(ipv4_router))
@@ -90,6 +94,10 @@ async fn main(
         .route("/19/remove/:id", delete(delete_quote))
         .route("/19/undo/:id", put(update_quote))
         .route("/19/draft", post(add_quote))
+        .route("/23/star", get(star))
+        .route("/23/present/:color", get(get_present))
+        .route("/23/ornament/:state/:n", get(get_ornament))
+        .nest_service("/assets", ServeDir::new("assets"))
         .with_state(shared_state);
 
     Ok(router.into())
